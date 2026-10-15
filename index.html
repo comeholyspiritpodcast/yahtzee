@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Yahtzee">
+<meta name="theme-color" content="#05080f">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="icon" href="icon.png">
+<title>Yahtzee</title>
+<style>
+:root{
+  --ink:#05080f; --navy:#0c1523; --slate:#26394b;
+  --glass:rgba(255,255,255,.05); --glass2:rgba(255,255,255,.12);
+  --text:#eef2f8; --muted:#8996a8; --accent:#6366f1; --accent-soft:#9a9dff;
+  --card:#f4f6fa; --pip:#161c28;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0}
+body{
+  background:var(--ink);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;overscroll-behavior:none;touch-action:manipulation;
+  -webkit-user-select:none;user-select:none;
+}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent-soft);outline-offset:2px}
+#app{position:fixed;inset:0;background:linear-gradient(180deg,#05080f 0%,var(--navy) 38%,var(--slate) 100%);overflow:hidden}
+.screen{
+  position:absolute;inset:0;display:none;flex-direction:column;
+  padding:max(14px,env(safe-area-inset-top)) 18px max(16px,env(safe-area-inset-bottom));
+  max-width:520px;margin:0 auto;
+}
+.screen.on{display:flex}
+
+/* ---------- dice ---------- */
+.die{
+  position:relative;flex:1;aspect-ratio:1;max-width:68px;border-radius:17%;
+  background:linear-gradient(160deg,#ffffff,#e6eaf2);
+  box-shadow:0 10px 22px rgba(0,0,0,.35),inset 0 -3px 6px rgba(0,0,0,.06);
+  display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);
+  padding:15%;transition:transform .18s ease,box-shadow .18s ease;
+}
+.die .cell{display:grid;place-items:center}
+.die .pip{width:82%;aspect-ratio:1;border-radius:50%;background:var(--pip);box-shadow:inset 0 2px 3px rgba(0,0,0,.5)}
+.die.back{background:var(--card)}
+.die.back::after{
+  content:"";position:absolute;inset:13%;border-radius:12%;
+  background:repeating-linear-gradient(-45deg,#1b2433 0 5px,var(--card) 5px 9px);
+}
+.die.held{transform:translateY(-10px);box-shadow:0 0 0 3px var(--accent),0 16px 26px rgba(0,0,0,.4)}
+.die.tumble{animation:tumble .36s ease-in-out}
+@keyframes tumble{
+  0%{transform:translateY(0) rotate(0)}
+  30%{transform:translateY(-14px) rotate(-14deg)}
+  60%{transform:translateY(0) rotate(10deg)}
+  100%{transform:translateY(0) rotate(0)}
+}
+
+/* ---------- buttons ---------- */
+.btn{
+  height:56px;border:0;border-radius:28px;font-size:17px;font-weight:600;
+  background:var(--glass2);display:flex;align-items:center;justify-content:center;
+  transition:opacity .15s,transform .1s;
+}
+.btn:active:not(:disabled){transform:scale(.97)}
+.btn:disabled{opacity:.38;cursor:default}
+.btn.primary{background:var(--accent)}
+.btn.light{background:var(--card);color:var(--navy)}
+.circle{
+  width:44px;height:44px;border-radius:50%;border:0;background:var(--glass2);
+  display:grid;place-items:center;position:relative;
+}
+
+/* ---------- setup ---------- */
+#setup{justify-content:center;gap:14px}
+.hero{display:flex;justify-content:center;gap:14px;margin-bottom:6px;padding-top:10px}
+.hero .die{flex:none;width:64px;max-width:none}
+.hero .die:nth-child(1){transform:rotate(-12deg) translateY(6px)}
+.hero .die:nth-child(2){transform:rotate(3deg) translateY(-6px)}
+.hero .die:nth-child(3){transform:rotate(11deg) translateY(4px)}
+h1{margin:6px 0 0;text-align:center;font-size:44px;font-weight:600;letter-spacing:-.025em}
+.sub{margin:0 0 8px;text-align:center;color:var(--muted);font-size:15px}
+.seg{display:grid;grid-template-columns:1fr 1fr;background:var(--glass);border-radius:16px;padding:4px}
+.seg button{border:0;background:none;height:42px;border-radius:12px;font-size:16px;font-weight:600;color:var(--muted)}
+.seg button.on{background:var(--card);color:var(--navy)}
+input{
+  height:54px;border-radius:16px;border:0;background:var(--glass2);color:var(--text);
+  font-size:17px;padding:0 18px;width:100%;-webkit-user-select:text;user-select:text;
+}
+input::placeholder{color:var(--muted)}
+.names{display:grid;gap:10px}
+
+/* ---------- game ---------- */
+#game{padding-bottom:max(14px,env(safe-area-inset-bottom))}
+.top{display:grid;grid-template-columns:44px 1fr 44px;align-items:center}
+.center{text-align:center;line-height:1.1}
+.who{font-size:13px;color:var(--muted);height:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.big{font-size:32px;font-weight:300;font-variant-numeric:tabular-nums;margin-top:2px}
+.ring svg{position:absolute;inset:0;transform:rotate(-90deg)}
+.ring .n{font-size:14px;font-weight:600;font-variant-numeric:tabular-nums}
+.dice{display:flex;justify-content:space-between;gap:10px;padding:22px 2px 2px}
+.hint{text-align:center;font-size:13px;color:var(--muted);min-height:18px;margin:14px 0 8px}
+.card{flex:1;min-height:0;display:flex;flex-direction:column;gap:3px;justify-content:center}
+.row{
+  flex:1 1 0;min-height:24px;max-height:38px;display:grid;
+  grid-template-columns:1fr repeat(var(--n),minmax(0,84px));
+  border-radius:11px;background:var(--glass);font-size:15px;transition:background .15s;
+}
+.row>span{display:flex;align-items:center}
+.row .l{padding-left:12px;color:#c9d2de;white-space:nowrap}
+.row .c{justify-content:center;font-variant-numeric:tabular-nums;font-weight:600;padding:0 4px;margin:2px 2px;border-radius:9px;white-space:nowrap}
+.row .c small{font-size:11px;color:var(--accent-soft);margin-left:3px;font-weight:600}
+.row .c.act{background:rgba(255,255,255,.06)}
+.row .c.pv{color:var(--accent-soft);font-weight:500}
+.row .c.zero{color:var(--muted);font-weight:400}
+.row.tap{cursor:pointer}
+.row.tap:active{background:var(--glass2)}
+.row.sel{background:rgba(99,102,241,.36)}
+.row.sel .c.pv{color:#fff;font-weight:700}
+.row.bonus{background:none;font-size:13px}
+.row.bonus .l{color:var(--muted)}
+.row.bonus .c{font-weight:500;color:var(--muted)}
+.row.bonus .c.earned{color:var(--accent-soft);font-weight:700}
+.row.total{background:none;font-size:17px;flex:0 0 34px;max-height:none}
+.row.total .l{font-weight:600;color:var(--text)}
+.row.total .c{font-weight:700}
+.row.head{background:none;font-size:13px;color:var(--muted);flex:0 0 22px;min-height:0}
+.row.head .c{display:block;line-height:22px;overflow:hidden;text-overflow:ellipsis;font-weight:500;background:none}
+.row.head .c.act{color:var(--text);font-weight:700}
+.actions{display:flex;gap:12px;margin-top:12px}
+.actions .roll{flex:1.35;background:var(--accent)}
+.actions .score{flex:1}
+.pips{display:flex;gap:5px;margin-left:12px}
+.pips i{width:9px;height:9px;border-radius:50%;border:1.5px solid rgba(255,255,255,.7)}
+.pips i.on{background:#fff}
+
+/* ---------- sheet / toast / end ---------- */
+.sheet{position:absolute;inset:0;background:rgba(5,8,15,.6);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);display:none;align-items:flex-end;justify-content:center;z-index:5}
+.sheet.on{display:flex}
+.panel{width:100%;max-width:520px;background:#162132;border-radius:24px 24px 0 0;padding:18px 18px max(18px,env(safe-area-inset-bottom));display:grid;gap:10px}
+.toast{
+  position:absolute;left:50%;top:36%;transform:translate(-50%,8px);background:rgba(20,30,45,.94);
+  padding:14px 24px;border-radius:22px;font-size:18px;font-weight:600;opacity:0;pointer-events:none;
+  transition:opacity .25s,transform .25s;z-index:4;white-space:nowrap;
+}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+#end{justify-content:center;align-items:center;text-align:center;gap:6px}
+#end .kicker{color:var(--muted);font-size:16px}
+#end .score-big{font-size:84px;font-weight:200;font-variant-numeric:tabular-nums;line-height:1.05}
+#end .title{font-size:30px;font-weight:600;letter-spacing:-.02em}
+#end .list{width:100%;display:grid;gap:8px;margin:14px 0 10px}
+#end .list div{display:flex;justify-content:space-between;background:var(--glass);border-radius:14px;padding:14px 18px;font-size:17px}
+#end .list div.win{background:rgba(99,102,241,.36)}
+#end .list b{font-variant-numeric:tabular-nums}
+#end .btns{width:100%;display:grid;gap:10px;margin-top:8px}
+@media (max-height:700px){
+  .big{font-size:26px}.dice{padding-top:16px}.hint{margin:10px 0 6px}.btn{height:50px}.row{font-size:14px}
+}
+@media (prefers-reduced-motion:reduce){.die.tumble{animation:none}*{transition:none!important}}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- Setup -->
+  <section id="setup" class="screen on">
+    <div class="hero" id="hero"></div>
+    <h1>Yahtzee</h1>
+    <p class="sub" id="sub">Pick a mode and enter your name.</p>
+    <div class="seg" role="tablist">
+      <button id="modeSolo" class="on" role="tab">Solo</button>
+      <button id="modeTogether" role="tab">Together</button>
+    </div>
+    <div class="names">
+      <input id="n1" type="text" maxlength="12" placeholder="Your name" autocomplete="off" autocapitalize="words" enterkeyhint="done">
+      <input id="n2" type="text" maxlength="12" placeholder="Friend's name" autocomplete="off" autocapitalize="words" enterkeyhint="done" hidden>
+    </div>
+    <button id="start" class="btn primary">Start game</button>
+    <button id="resume" class="btn" hidden>Resume game</button>
+  </section>
+
+  <!-- Game -->
+  <section id="game" class="screen">
+    <div class="top">
+      <button id="menuBtn" class="circle" aria-label="Menu">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="#eef2f8"><circle cx="4" cy="10" r="1.7"/><circle cx="10" cy="10" r="1.7"/><circle cx="16" cy="10" r="1.7"/></svg>
+      </button>
+      <div class="center"><div class="who" id="who"></div><div class="big" id="bigTotal">0</div></div>
+      <div class="circle ring" id="ring" aria-label="Round">
+        <svg viewBox="0 0 44 44"><circle cx="22" cy="22" r="19" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="2.5"/><circle id="ringArc" cx="22" cy="22" r="19" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="119.38" stroke-dashoffset="119.38"/></svg>
+        <span class="n" id="roundN">1</span>
+      </div>
+    </div>
+    <div class="dice" id="dice"></div>
+    <div class="hint" id="hint"></div>
+    <div class="card" id="card"></div>
+    <div class="actions">
+      <button id="roll" class="btn roll"><span>Roll</span><span class="pips" id="pips"><i></i><i></i><i></i></span></button>
+      <button id="score" class="btn score" disabled>Score</button>
+    </div>
+  </section>
+
+  <!-- End -->
+  <section id="end" class="screen">
+    <div class="kicker" id="endKicker"></div>
+    <div class="title" id="endTitle"></div>
+    <div class="score-big" id="endBig"></div>
+    <div class="list" id="endList"></div>
+    <div class="btns">
+      <button id="again" class="btn primary">Play again</button>
+      <button id="homeEnd" class="btn">Home</button>
+    </div>
+  </section>
+
+  <div class="sheet" id="sheet">
+    <div class="panel">
+      <button class="btn light" id="mResume">Resume</button>
+      <button class="btn" id="mRestart">Restart game</button>
+      <button class="btn" id="mHome">Leave game</button>
+    </div>
+  </div>
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+(function(){
+const $ = s => document.querySelector(s);
+const KEY = 'yz.state', NAMES = 'yz.names', BEST = 'yz.best';
+
+const CATS = [
+  {id:'ones',label:'Ones',up:1},{id:'twos',label:'Twos',up:2},{id:'threes',label:'Threes',up:3},
+  {id:'fours',label:'Fours',up:4},{id:'fives',label:'Fives',up:5},{id:'sixes',label:'Sixes',up:6},
+  {id:'bonus',label:'Bonus',bonus:true},
+  {id:'tok',label:'3 of a kind'},{id:'fok',label:'4 of a kind'},{id:'fh',label:'Full house'},
+  {id:'sm',label:'Sm. straight'},{id:'lg',label:'Lg. straight'},{id:'yz',label:'Yahtzee'},{id:'ch',label:'Chance'}
+];
+const SCORING = CATS.filter(c => !c.bonus);
+const PIPS = {1:[4],2:[0,8],3:[0,4,8],4:[0,2,6,8],5:[0,2,4,6,8],6:[0,2,3,5,6,8]};
+
+let S = null;          // game state
+let rolling = false;
+let mode = 'solo';
+
+/* ---------- storage ---------- */
+const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch(e){ return d; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} };
+const lsDel = k => { try { localStorage.removeItem(k); } catch(e){} };
+const save = () => { if (S && !S.over) lsSet(KEY, S); };
+
+/* ---------- scoring ---------- */
+const isY = d => d[0] !== 0 && d.every(v => v === d[0]);
+function calc(id, d, joker){
+  const c = [0,0,0,0,0,0,0]; d.forEach(v => c[v]++);
+  const sum = d.reduce((a,b) => a+b, 0);
+  const cat = CATS.find(x => x.id === id);
+  if (cat.up) return c[cat.up] * cat.up;
+  const has = (...v) => v.every(x => c[x] > 0);
+  switch(id){
+    case 'tok': return c.some(n => n >= 3) ? sum : 0;
+    case 'fok': return c.some(n => n >= 4) ? sum : 0;
+    case 'fh':  return (joker || (c.includes(3) && c.includes(2))) ? 25 : 0;
+    case 'sm':  return (joker || has(1,2,3,4) || has(2,3,4,5) || has(3,4,5,6)) ? 30 : 0;
+    case 'lg':  return (joker || has(1,2,3,4,5) || has(2,3,4,5,6)) ? 40 : 0;
+    case 'yz':  return c.some(n => n === 5) ? 50 : 0;
+    case 'ch':  return sum;
+  }
+  return 0;
+}
+const jokerOn = (p, d) => isY(d) && p.scores.yz !== undefined;
+function allowed(p, d){
+  const open = SCORING.filter(c => p.scores[c.id] === undefined).map(c => c.id);
+  if (jokerOn(p, d)){
+    const upId = CATS.find(c => c.up === d[0]).id;
+    if (open.includes(upId)) return [upId];
+    const lower = open.filter(id => !CATS.find(c => c.id === id).up);
+    if (lower.length) return lower;
+  }
+  return open;
+}
+const upper = p => CATS.filter(c => c.up).reduce((a,c) => a + (p.scores[c.id] || 0), 0);
+const bonusOf = p => upper(p) >= 63 ? 35 : 0;
+const total = p => Object.values(p.scores).reduce((a,b) => a+b, 0) + bonusOf(p) + p.yb;
+const filled = p => Object.keys(p.scores).length;
+const cur = () => S.players[S.turn];
+const esc = s => String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
+/* ---------- views ---------- */
+function show(id){
+  ['setup','game','end'].forEach(s => $('#'+s).classList.toggle('on', s === id));
+}
+function dieHTML(v, i, cls){
+  if (v === 0) return `<div class="die back ${cls||''}" data-i="${i}" role="button" aria-label="Die ${i+1}, face down"></div>`;
+  let cells = '';
+  for (let k = 0; k < 9; k++) cells += `<span class="cell">${PIPS[v].includes(k) ? '<span class="pip"></span>' : ''}</span>`;
+  return `<div class="die ${cls||''}" data-i="${i}" role="button" aria-label="Die ${i+1}: ${v}${S && S.held[i] ? ', held' : ''}">${cells}</div>`;
+}
+function renderDice(vals, tumble){
+  tumble = tumble || [];
+  $('#dice').innerHTML = vals.map((v,i) => dieHTML(v, i, (S.held[i] ? 'held ' : '') + (tumble.includes(i) ? 'tumble' : ''))).join('');
+}
+function renderCard(){
+  const p = cur(), d = S.dice, rolled = d[0] !== 0, n = S.players.length;
+  const al = rolled && !rolling ? allowed(p, d) : [];
+  const joker = rolled && jokerOn(p, d);
+  let h = '';
+  if (n > 1){
+    h += `<div class="row head"><span></span>${S.players.map((q,i) => `<span class="c ${i===S.turn?'act':''}">${esc(q.name)}</span>`).join('')}</div>`;
+  }
+  for (const cat of CATS){
+    const tappable = al.includes(cat.id);
+    const sel = S.selected === cat.id;
+    const cls = ['row', cat.bonus ? 'bonus' : '', tappable ? 'tap' : '', sel ? 'sel' : ''].join(' ');
+    let cells = '';
+    S.players.forEach((q, i) => {
+      const act = i === S.turn ? 'act' : '';
+      if (cat.bonus){
+        const u = upper(q), left = Math.max(0, 63 - u);
+        const done = CATS.filter(c => c.up).every(c => q.scores[c.id] !== undefined);
+        if (u >= 63) cells += `<span class="c earned ${act}">+35</span>`;
+        else cells += `<span class="c ${act}">${done ? '0' : left + ' left'}</span>`;
+        return;
+      }
+      const v = q.scores[cat.id];
+      if (v !== undefined){
+        const extra = cat.id === 'yz' && q.yb > 0 ? `<small>+${q.yb}</small>` : '';
+        cells += `<span class="c ${v === 0 ? 'zero' : ''} ${act}">${v}${extra}</span>`;
+      } else if (i === S.turn && tappable){
+        cells += `<span class="c pv ${act}">${calc(cat.id, d, joker)}</span>`;
+      } else {
+        cells += `<span class="c ${act}"></span>`;
+      }
+    });
+    h += `<div class="${cls}" data-id="${cat.id}"><span class="l">${cat.label}</span>${cells}</div>`;
+  }
+  h += `<div class="row total"><span class="l">Total</span>${S.players.map((q,i) => `<span class="c ${i===S.turn?'act':''}">${total(q)}</span>`).join('')}</div>`;
+  const el = $('#card');
+  el.style.setProperty('--n', n);
+  el.innerHTML = h;
+}
+function render(){
+  if (!S) return;
+  const p = cur(), rolled = S.dice[0] !== 0;
+  $('#who').textContent = p.name;
+  $('#bigTotal').textContent = total(p).toLocaleString();
+  const f = filled(p);
+  $('#roundN').textContent = Math.min(13, f + 1);
+  $('#ringArc').setAttribute('stroke-dashoffset', (119.38 * (1 - f / 13)).toFixed(2));
+  renderDice(S.dice);
+  renderCard();
+  // hint
+  let hint = 'Roll to start your turn';
+  if (rolled && S.rollsLeft > 0) hint = 'Tap dice to hold them';
+  if (rolled && S.rollsLeft === 0) hint = 'Choose where to score';
+  if (rolled && jokerOn(p, S.dice) && p.scores.yz === 50) hint = 'Extra Yahtzee: +100 bonus';
+  $('#hint').textContent = hint;
+  // buttons
+  [...$('#pips').children].forEach((el, i) => el.classList.toggle('on', i < S.rollsLeft));
+  $('#roll').disabled = rolling || S.rollsLeft < 1;
+  const sb = $('#score');
+  if (S.selected){
+    sb.textContent = 'Score ' + calc(S.selected, S.dice, jokerOn(p, S.dice));
+    sb.disabled = rolling;
+    sb.classList.add('light');
+  } else {
+    sb.textContent = 'Score';
+    sb.disabled = true;
+    sb.classList.remove('light');
+  }
+}
+
+/* ---------- game flow ---------- */
+function fresh(modeName, names){
+  return {
+    mode: modeName,
+    players: names.map(n => ({name:n, scores:{}, yb:0})),
+    turn: 0, dice:[0,0,0,0,0], held:[false,false,false,false,false],
+    rollsLeft: 3, selected: null, over: false
+  };
+}
+function start(modeName, names){
+  S = fresh(modeName, names);
+  save(); show('game'); render();
+}
+function roll(){
+  if (!S || rolling || S.rollsLeft < 1) return;
+  const idx = [0,1,2,3,4].filter(i => !S.held[i]);
+  const final = S.dice.slice();
+  idx.forEach(i => final[i] = 1 + Math.floor(Math.random() * 6));
+  S.dice = final; S.rollsLeft--; S.selected = null; rolling = true;
+  save();
+  $('#roll').disabled = true; $('#score').disabled = true;
+  renderCard(); // clear previews while rolling
+  let n = 0;
+  const t = setInterval(() => {
+    n++;
+    const tmp = final.slice();
+    idx.forEach(i => tmp[i] = 1 + Math.floor(Math.random() * 6));
+    renderDice(n >= 6 ? final : tmp, n === 1 ? idx : []);
+    if (n >= 6){ clearInterval(t); rolling = false; render(); }
+  }, 60);
+}
+function commit(){
+  if (!S || !S.selected || rolling) return;
+  const p = cur(), joker = jokerOn(p, S.dice);
+  const val = calc(S.selected, S.dice, joker);
+  if (isY(S.dice) && p.scores.yz === 50) p.yb += 100;
+  p.scores[S.selected] = val;
+  if (S.players.every(q => filled(q) === 13)) return finish();
+  const multi = S.players.length > 1;
+  if (multi) S.turn = (S.turn + 1) % S.players.length;
+  S.dice = [0,0,0,0,0]; S.held = [false,false,false,false,false];
+  S.rollsLeft = 3; S.selected = null;
+  save(); render();
+  if (multi) toast(cur().name + "'s turn");
+}
+function finish(){
+  S.over = true; lsDel(KEY);
+  const best = lsGet(BEST, {});
+  let newBest = false, bestVal = 0;
+  const totals = S.players.map(total);
+  if (S.players.length === 1){
+    const k = S.players[0].name.toLowerCase();
+    bestVal = best[k] || 0;
+    if (totals[0] > bestVal){ best[k] = totals[0]; bestVal = totals[0]; newBest = true; lsSet(BEST, best); }
+  }
+  const max = Math.max(...totals);
+  if (S.players.length === 1){
+    $('#endKicker').textContent = S.players[0].name;
+    $('#endTitle').textContent = newBest ? 'New best' : 'Final score';
+    $('#endBig').textContent = totals[0];
+    $('#endList').innerHTML = `<div><span>Your best</span><b>${bestVal}</b></div>`;
+  } else {
+    const winners = S.players.filter((q,i) => totals[i] === max);
+    $('#endKicker').textContent = 'Game over';
+    $('#endTitle').textContent = winners.length > 1 ? 'Tie game' : winners[0].name + ' wins';
+    $('#endBig').textContent = max;
+    $('#endList').innerHTML = S.players.map((q,i) => `<div class="${totals[i]===max?'win':''}"><span>${esc(q.name)}</span><b>${totals[i]}</b></div>`).join('');
+  }
+  show('end');
+}
+let toastT;
+function toast(msg){
+  const t = $('#toast'); t.textContent = msg; t.classList.add('on');
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 1100);
+}
+
+/* ---------- events ---------- */
+$('#dice').addEventListener('click', e => {
+  const d = e.target.closest('.die');
+  if (!d || !S || rolling) return;
+  const i = +d.dataset.i;
+  if (S.dice[i] === 0 || S.rollsLeft < 1) return;
+  S.held[i] = !S.held[i]; save(); render();
+});
+$('#card').addEventListener('click', e => {
+  const r = e.target.closest('.row.tap');
+  if (!r || !S || rolling) return;
+  S.selected = S.selected === r.dataset.id ? null : r.dataset.id;
+  render();
+});
+$('#roll').addEventListener('click', roll);
+$('#score').addEventListener('click', commit);
+
+// menu
+const sheet = $('#sheet');
+$('#menuBtn').addEventListener('click', () => sheet.classList.add('on'));
+$('#mResume').addEventListener('click', () => sheet.classList.remove('on'));
+sheet.addEventListener('click', e => { if (e.target === sheet) sheet.classList.remove('on'); });
+$('#mRestart').addEventListener('click', () => {
+  if (!confirm('Restart this game? Scores will be lost.')) return;
+  sheet.classList.remove('on');
+  start(S.mode, S.players.map(p => p.name));
+});
+$('#mHome').addEventListener('click', () => { sheet.classList.remove('on'); goHome(); });
+
+// end
+$('#again').addEventListener('click', () => start(S.mode, S.players.map(p => p.name)));
+$('#homeEnd').addEventListener('click', () => { S = null; goHome(); });
+
+// setup
+function setMode(m){
+  mode = m;
+  $('#modeSolo').classList.toggle('on', m === 'solo');
+  $('#modeTogether').classList.toggle('on', m === 'together');
+  $('#n2').hidden = m === 'solo';
+  $('#n1').placeholder = m === 'solo' ? 'Your name' : 'Player 1 name';
+  $('#sub').textContent = m === 'solo'
+    ? 'One player. Chase your best score.'
+    : 'Two players, one phone. Pass it back and forth.';
+}
+$('#modeSolo').addEventListener('click', () => setMode('solo'));
+$('#modeTogether').addEventListener('click', () => setMode('together'));
+$('#start').addEventListener('click', () => {
+  const a = $('#n1').value.trim() || 'Player 1';
+  const b = $('#n2').value.trim() || 'Player 2';
+  lsSet(NAMES, {mode, a: $('#n1').value.trim(), b: $('#n2').value.trim()});
+  start(mode, mode === 'solo' ? [a] : [a, b]);
+});
+$('#resume').addEventListener('click', () => {
+  const s = lsGet(KEY, null);
+  if (s){ S = s; show('game'); render(); }
+});
+[$('#n1'), $('#n2')].forEach(el => el.addEventListener('keydown', e => { if (e.key === 'Enter'){ el.blur(); } }));
+
+function goHome(){
+  const saved = lsGet(KEY, null);
+  const r = $('#resume');
+  r.hidden = !saved;
+  if (saved) r.textContent = saved.players.length > 1 ? 'Resume game' : 'Resume ' + saved.players[0].name + "'s game";
+  show('setup');
+}
+
+/* ---------- boot ---------- */
+(function init(){
+  // hero dice
+  S = {held:[false,false,false]};
+  $('#hero').innerHTML = [5,6,6].map((v,i) => dieHTML(v, i, '')).join('');
+  S = null;
+  const nm = lsGet(NAMES, null);
+  if (nm){ $('#n1').value = nm.a || ''; $('#n2').value = nm.b || ''; setMode(nm.mode === 'together' ? 'together' : 'solo'); }
+  else setMode('solo');
+  const saved = lsGet(KEY, null);
+  if (saved && !saved.over){ S = saved; show('game'); render(); }
+  else goHome();
+})();
+})();
+</script>
+</body>
+</html>
