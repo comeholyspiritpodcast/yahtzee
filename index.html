@@ -162,6 +162,14 @@ input::placeholder{color:var(--muted)}
 .pips i.on{background:#fff}
 
 /* ---------- lobby / banner ---------- */
+#pop{position:absolute;left:50%;top:34%;transform:translate(-50%,-50%) scale(.6);opacity:0;pointer-events:none;z-index:7;text-align:center;
+  padding:20px 36px 22px;border-radius:26px;white-space:nowrap;
+  background:linear-gradient(160deg,#7477f3,var(--accent) 55%,#5558e0);
+  box-shadow:0 20px 50px rgba(20,22,90,.6),inset 0 1px 0 rgba(255,255,255,.2);
+  transition:transform .5s cubic-bezier(.2,1.4,.4,1),opacity .25s}
+#pop.on{opacity:1;transform:translate(-50%,-50%) scale(1)}
+#pop b{display:block;font-size:42px;font-weight:700;letter-spacing:-.02em}
+#pop span{font-size:16px;color:rgba(255,255,255,.88)}
 #confetti{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:6}
 .banner{text-align:center;font-size:13px;color:var(--accent-soft);background:var(--glass);border-radius:12px;padding:6px 12px;margin-top:8px}
 .banner:empty{display:none}
@@ -291,6 +299,7 @@ input::placeholder{color:var(--muted)}
     </div>
   </div>
   <canvas id="confetti"></canvas>
+  <div id="pop" role="status"><b>Yahtzee!</b><span></span></div>
   <div class="toast" id="toast"></div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
@@ -298,8 +307,12 @@ input::placeholder{color:var(--muted)}
 (function(){
 const $ = s => document.querySelector(s);
 const KEY = 'yz.solo.', LAST = 'yz.solo.last', NAMES = 'yz.name', BEST = 'yz.best', SESSION = 'yz.session', ONLINE = 'yz.on.';
-const LUCK = 0.18;  // chance a roll gets a second draw, keeping the better one. 0 = off.
-const NUDGE = 0.04; // tiny bias toward matching dice when you hold 2+ of a kind. 0 = fair dice.
+// Luck tuning (set everything to 0 for fair dice).
+const LUCK_BY_ROLL = [0, 0.09, 0.17, 0.22]; // chance a roll gets a second draw (keeps the better one); roll 1, 2, 3
+const LUCK_HELD_BONUS = 0.04;               // extra chance when you are holding at least one die
+const NUDGE_PAIR = 0.045, NUDGE_TRIPLE = 0.055; // holding 2 / 3+ of the same number: pull re-rolled dice toward it
+const NUDGE_FH = 0.12;                      // holding a triple (or two pairs): pull re-rolled dice toward completing a full house
+const NUDGE_STRAIGHT = 0.09;                // holding 3+ distinct dice in a run: pull re-rolled dice toward the missing numbers // tiny bias toward matching dice when you hold 2+ of a kind. 0 = fair dice.
 const PREFIX = 'yahtzee-fm-';
 
 /* Connection helpers for players on different networks (home Wi-Fi vs cellular, etc).
@@ -431,10 +444,20 @@ function quality(d){
   let run = 0, best = 0;
   for (let v = 1; v <= 6; v++){ if (c[v]){ run++; best = Math.max(best, run); } else run = 0; }
   const fh = c.includes(3) && c.includes(2);
-  return Math.max(...c) * 3 + (best >= 5 ? 8 : best === 4 ? 5 : best === 3 ? 1.5 : 0) + (fh ? 4 : 0) + d.reduce((a,b) => a+b, 0) * 0.05;
+  return Math.max(...c) * 3 + (best >= 5 ? 9 : best === 4 ? 6 : best === 3 ? 2 : 0) + (fh ? 6 : 0) + d.reduce((a,b) => a+b, 0) * 0.05;
 }
-function rollDie(bias){
-  if (bias && Math.random() < NUDGE) return bias;
+function straightTargets(hv){
+  const u = [...new Set(hv)];
+  if (u.length < 3) return [];
+  let best = null, bo = 0;
+  for (const lo of [1, 2]){
+    const win = [lo, lo+1, lo+2, lo+3, lo+4], ov = win.filter(v => u.includes(v)).length;
+    if (ov > bo || (ov === bo && Math.random() < .5)){ bo = ov; best = win; }
+  }
+  return bo >= 3 ? best.filter(v => !u.includes(v)) : [];
+}
+function rollDie(bias, nudge){
+  if (bias && Math.random() < nudge) return bias;
   return 1 + rnd(6);
 }
 function act(a, who){
@@ -446,9 +469,31 @@ function act(a, who){
     const idx = [0,1,2,3,4].filter(i => !S.held[i]);
     const hv = S.dice.filter((v,i) => S.held[i] && v);
     const bias = hv.length >= 2 && hv.every(v => v === hv[0]) ? hv[0] : 0;
-    const draw = () => { const t = S.dice.slice(); idx.forEach(i => t[i] = rollDie(bias)); return t; };
+    const nudge = hv.length >= 3 ? NUDGE_TRIPLE : NUDGE_PAIR;
+    const target = bias ? [] : straightTargets(hv);
+    // full house helpers: a held triple with 2 dice to roll, or two held pairs with 1 die to roll
+    const cnt = {}; hv.forEach(v => cnt[v] = (cnt[v] || 0) + 1);
+    const hvals = Object.keys(cnt).map(Number);
+    const fhTriple = hv.length === 3 && hvals.length === 1 && idx.length === 2 ? hvals[0] : 0;
+    const fhPairs = hv.length === 4 && hvals.length === 2 && cnt[hvals[0]] === 2 && cnt[hvals[1]] === 2 && idx.length === 1 ? hvals : [];
+    const draw = () => {
+      const t = S.dice.slice(), need = target.slice();
+      if (fhTriple && Math.random() < NUDGE_FH){
+        const others = [1,2,3,4,5,6].filter(v => v !== fhTriple), v = others[rnd(5)];
+        idx.forEach(i => t[i] = v);
+        return t;
+      }
+      idx.forEach(i => {
+        if (fhPairs.length && Math.random() < NUDGE_FH) t[i] = fhPairs[rnd(2)];
+        else if (need.length && Math.random() < NUDGE_STRAIGHT) t[i] = need.splice(rnd(need.length), 1)[0];
+        else t[i] = rollDie(bias, nudge);
+      });
+      return t;
+    };
+    const rollNo = 4 - S.rollsLeft;   // 1st, 2nd or 3rd roll of the turn
+    const luck = Math.min(.5, LUCK_BY_ROLL[rollNo] + (hv.length ? LUCK_HELD_BONUS : 0));
     let res = draw();
-    if (Math.random() < LUCK){ const alt = draw(); if (quality(alt) > quality(res)) res = alt; }
+    if (Math.random() < luck){ const alt = draw(); if (quality(alt) > quality(res)) res = alt; }
     S.dice = res;
     S.rollsLeft--; S.selected = null; S.rollSeq++; S.rolledIdx = idx;
   } else if (a.t === 'hold'){
@@ -532,7 +577,11 @@ function playRoll(idx){
   const delays = [55,55,60,70,80,95,115,140,160];
   let n = 0;
   (function step(){
-    if (n >= delays.length){ rolling = false; paintDice(final); render(); return; }
+    if (n >= delays.length){
+      rolling = false; paintDice(final); render();
+      if (isY(final)) yahtzeePop(final[0], S.players.length > 1 && S.turn !== ME ? cur().name : '');
+      return;
+    }
     const tmp = final.slice();
     idx.forEach(i => tmp[i] = 1 + rnd(6));
     paintDice(tmp);
@@ -576,7 +625,14 @@ function tickConfetti(){
 }
 const celebrateGame = () => { confetti(55, .12, .95, 55, 17); confetti(55, .88, .95, 55, 17); confetti(30, .5, .55, 80, 12); };
 const celebrateBonus = () => confetti(45, .5, .5, 90, 11);
-let celebrated = null;
+let celebrated = null, popT;
+const WORDS = ['', 'ones', 'twos', 'threes', 'fours', 'fives', 'sixes'];
+function yahtzeePop(v, name){
+  const el = $('#pop');
+  el.querySelector('span').textContent = (name ? name + ' rolled five ' : 'Five ') + WORDS[v];
+  el.classList.add('on'); clearTimeout(popT); popT = setTimeout(() => el.classList.remove('on'), 2700);
+  confetti(60, .5, .4, 100, 14); confetti(40, .12, .95, 50, 17); confetti(40, .88, .95, 50, 17);
+}
 
 /* ---------- views ---------- */
 function show(id){ ['setup','lobby','game','end'].forEach(s => $('#'+s).classList.toggle('on', s === id)); }
