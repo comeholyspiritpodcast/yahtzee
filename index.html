@@ -105,7 +105,12 @@ input::placeholder{color:var(--muted)}
 /* ---------- game ---------- */
 #game{padding-bottom:max(14px,env(safe-area-inset-bottom))}
 .top{display:grid;grid-template-columns:44px 1fr 44px;align-items:center;margin-bottom:8px}
-.center{text-align:center;line-height:1.1;justify-self:center;max-width:100%}
+.center{text-align:center;line-height:1.1;justify-self:center;max-width:100%;display:flex;gap:8px;justify-content:center}
+.center.two{justify-self:stretch;padding:0 8px}
+.center.two .namecard{flex:1;min-width:0;padding:5px 8px 6px}
+.namecard.off{background:var(--glass2);box-shadow:none;color:var(--text)}
+.namecard.off .who{color:var(--muted)}
+.namecard{transition:background .25s}
 .namecard{
   background:linear-gradient(160deg,#7477f3,var(--accent) 55%,#5558e0);color:#fff;border-radius:14px;
   padding:5px 18px 6px;min-width:104px;
@@ -248,7 +253,7 @@ input::placeholder{color:var(--muted)}
       <button id="menuBtn" class="circle" aria-label="Menu">
         <svg width="20" height="20" viewBox="0 0 20 20" fill="#eef2f8"><circle cx="4" cy="10" r="1.7"/><circle cx="10" cy="10" r="1.7"/><circle cx="16" cy="10" r="1.7"/></svg>
       </button>
-      <div class="center namecard"><div class="who" id="who"></div><div class="big" id="bigTotal">0</div></div>
+      <div class="center" id="cards"></div>
       <div class="circle ring" id="ring" aria-label="Round">
         <svg viewBox="0 0 44 44"><circle cx="22" cy="22" r="19" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="2.5"/><circle id="ringArc" cx="22" cy="22" r="19" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="119.38" stroke-dashoffset="119.38"/></svg>
         <span class="n" id="roundN">1</span>
@@ -296,6 +301,28 @@ const KEY = 'yz.solo.', LAST = 'yz.solo.last', NAMES = 'yz.name', BEST = 'yz.bes
 const LUCK = 0.18;  // chance a roll gets a second draw, keeping the better one. 0 = off.
 const NUDGE = 0.04; // tiny bias toward matching dice when you hold 2+ of a kind. 0 = fair dice.
 const PREFIX = 'yahtzee-fm-';
+
+/* Connection helpers for players on different networks (home Wi-Fi vs cellular, etc).
+   Some networks block direct phone-to-phone links, so traffic has to go through a relay (a "TURN server").
+   The public relays below are best-effort. For reliable play across networks, get your own free TURN
+   credentials (see README, "Playing across different networks") and paste the iceServers list into MY_TURN_SERVERS. */
+const MY_TURN_SERVERS = [
+  {urls:'stun:stun.relay.metered.ca:80'},
+  {urls:'turn:global.relay.metered.ca:80', username:'bd37ae16bdbd8e67867af4e4', credential:'MiV/eX2lSOtiRnh3'},
+  {urls:'turn:global.relay.metered.ca:80?transport=tcp', username:'bd37ae16bdbd8e67867af4e4', credential:'MiV/eX2lSOtiRnh3'},
+  {urls:'turn:global.relay.metered.ca:443', username:'bd37ae16bdbd8e67867af4e4', credential:'MiV/eX2lSOtiRnh3'},
+  {urls:'turns:global.relay.metered.ca:443?transport=tcp', username:'bd37ae16bdbd8e67867af4e4', credential:'MiV/eX2lSOtiRnh3'},
+];
+const ICE_SERVERS = [
+  {urls:'stun:stun.l.google.com:19302'},
+  {urls:'stun:stun1.l.google.com:19302'},
+  {urls:'stun:stun.cloudflare.com:3478'},
+  {urls:'turn:eu-0.turn.peerjs.com:3478', username:'peerjs', credential:'peerjsp'},
+  {urls:'turn:us-0.turn.peerjs.com:3478', username:'peerjs', credential:'peerjsp'},
+  ...MY_TURN_SERVERS
+];
+const PEER_OPTS = {config:{iceServers: ICE_SERVERS, iceCandidatePoolSize: 4}};
+const SLOW_MSG = "Still trying to connect. Different Wi-Fi or cellular networks can block direct links. Keep this screen open, or see the README to add a relay.";
 
 const CATS = [
   {id:'ones',label:'Ones',up:1},{id:'twos',label:'Twos',up:2},{id:'threes',label:'Threes',up:3},
@@ -604,8 +631,12 @@ function render(){
   if (S.over){ showEnd(); return; }
   if (!$('#game').classList.contains('on')) show('game');
   const p = cur(), mine = myTurn(), rolled = S.dice[0] !== 0, online = mode === 'online';
-  $('#who').textContent = online ? (mine ? 'Your turn' : p.name + "'s turn") : p.name;
-  $('#bigTotal').textContent = total(p).toLocaleString();
+  $('#cards').className = 'center' + (S.players.length > 1 ? ' two' : '');
+  $('#cards').innerHTML = S.players.map((q, i) => {
+    const on = S.players.length === 1 || i === S.turn;
+    const label = S.players.length === 1 ? q.name : (online && i === ME ? q.name + ' (you)' : q.name);
+    return `<div class="namecard ${on ? 'on' : 'off'}"><div class="who">${esc(label)}</div><div class="big">${total(q).toLocaleString()}</div></div>`;
+  }).join('');
   const f = filled(p);
   $('#roundN').textContent = Math.min(13, f + 1);
   $('#ringArc').setAttribute('stroke-dashoffset', (119.38 * (1 - f / 13)).toFixed(2));
@@ -700,7 +731,7 @@ function startSolo(name){
 
 /* ---------- online ---------- */
 function teardown(){
-  clearTimeout(net.rt);
+  clearTimeout(net.rt); clearTimeout(net.connT);
   if (net.peer){ try { net.peer.destroy(); } catch(e){} }
   net = {}; pending = false;
 }
@@ -748,11 +779,11 @@ function lobbyRender(){
     list.innerHTML = `<div><span>${esc(net.hostName)}</span><span class="tag">Host</span></div><div><span>${esc(net.name)}</span><span class="tag">You</span></div>`;
     st.textContent = `Waiting for ${net.hostName} to start the game.`;
   } else {
-    list.innerHTML = ''; st.textContent = 'Connecting…';
+    list.innerHTML = ''; st.textContent = net.slow ? SLOW_MSG : 'Connecting…';
   }
 }
 function tryHost(){
-  const me = net, peer = new Peer(hostId(net.room));
+  const me = net, peer = new Peer(hostId(net.room), PEER_OPTS);
   net.peer = peer; net.role = 'pending';
   peer.on('open', () => {
     if (net !== me || net.peer !== peer) return;
@@ -795,7 +826,7 @@ function onGuestConn(conn){
   });
 }
 function tryGuest(){
-  const me = net, peer = new Peer();
+  const me = net, peer = new Peer(undefined, PEER_OPTS);
   net.peer = peer;
   peer.on('open', () => {
     if (net !== me || net.peer !== peer) return;
@@ -819,8 +850,17 @@ function connectToHost(){
   const me = net, peer = net.peer;
   const c = peer.connect(hostId(net.room), {reliable: true});
   net.conn = c;
+  clearTimeout(net.connT);
+  net.connT = setTimeout(() => {
+    if (net !== me || net.conn !== c || c.open) return;
+    net.slow = true;
+    try { c.close(); } catch(e){}
+    if (S) render(); else lobbyRender();
+    scheduleRetry(500);
+  }, 15000);
   c.on('open', () => {
     if (net !== me || net.conn !== c) return;
+    clearTimeout(net.connT); net.slow = false;
     net.offline = false;
     c.send({t:'hello', name: net.name});
     if (S) render();
