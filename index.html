@@ -15,8 +15,8 @@
 :root{
   --ink:#05080f; --navy:#0c1523; --slate:#26394b;
   --glass:rgba(255,255,255,.05); --glass2:rgba(255,255,255,.12);
-  --text:#eef2f8; --muted:#8996a8; --accent:#6366f1; --accent-soft:#9a9dff;
-  --card:#f4f6fa; --pip:#161c28; --purple:#a78bfa;
+  --text:#eef2f8; --muted:#8996a8; --accent:#3a7bd5; --accent-soft:#8ab8f5; --on-accent:#ffffff;
+  --card:#f4f6fa; --pip:#161c28; --purple:#5a96eb;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;margin:0}
@@ -53,8 +53,8 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--accent-soft);ou
 }
 .die.held{
   transform:translateY(-8px);
-  background:linear-gradient(160deg,#efe9ff,#cdbdfc);
-  box-shadow:0 0 0 2px rgba(167,139,250,.6),0 12px 20px rgba(0,0,0,.4);
+  background:linear-gradient(160deg,#eef5ff,#c3dbfb);
+  box-shadow:0 0 0 2px rgba(90,150,235,.6),0 12px 20px rgba(0,0,0,.4);
 }
 .die.tumble{animation:tumble .85s cubic-bezier(.25,.6,.3,1) both}
 @keyframes tumble{
@@ -74,7 +74,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--accent-soft);ou
 }
 .btn:active:not(:disabled){transform:scale(.97)}
 .btn:disabled{opacity:.38;cursor:default}
-.btn.primary{background:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--on-accent)}
 .btn.light{background:var(--card);color:var(--navy)}
 .circle{
   width:44px;height:44px;border-radius:50%;border:0;background:var(--glass2);
@@ -112,11 +112,11 @@ input::placeholder{color:var(--muted)}
 .namecard.off .who{color:var(--muted)}
 .namecard{transition:background .25s}
 .namecard{
-  background:linear-gradient(160deg,#7477f3,var(--accent) 55%,#5558e0);color:#fff;border-radius:14px;
+  background:linear-gradient(160deg,#5b9ae8,var(--accent) 55%,#2f66b8);color:var(--on-accent);border-radius:14px;
   padding:5px 18px 6px;min-width:104px;
-  box-shadow:0 8px 18px rgba(30,32,110,.5),inset 0 1px 0 rgba(255,255,255,.18);
+  box-shadow:0 8px 18px rgba(10,30,80,.45),inset 0 1px 0 rgba(255,255,255,.3);
 }
-.who{font-size:12px;font-weight:500;color:rgba(255,255,255,.78);height:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.who{font-size:12px;font-weight:500;color:rgba(255,255,255,.85);height:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .big{font-size:23px;font-weight:650;font-variant-numeric:tabular-nums;margin-top:1px;letter-spacing:-.01em}
 .ring svg{position:absolute;inset:0;transform:rotate(-90deg)}
 .ring .n{font-size:14px;font-weight:600;font-variant-numeric:tabular-nums}
@@ -137,13 +137,13 @@ input::placeholder{color:var(--muted)}
 .row .c.zero{color:var(--muted);font-weight:400}
 .row.tap{cursor:pointer}
 .row.tap:active{background:var(--glass2)}
-.row.done{background:rgba(167,139,250,.19)}
-.row .c.done{background:rgba(167,139,250,.24)}
-.row.bonus.done{background:rgba(167,139,250,.19)}
+.row.done{background:rgba(90,150,235,.19)}
+.row .c.done{background:rgba(90,150,235,.24)}
+.row.bonus.done{background:rgba(90,150,235,.19)}
 .row.bonus.done .l{color:#c9d2de}
 .row.bonus.done .c{color:var(--accent-soft);font-weight:700}
-.row.sel{background:rgba(167,139,250,.38);box-shadow:inset 0 0 0 1px rgba(167,139,250,.65)}
-.row.sel .c.pv{color:#f3eeff;font-weight:700}
+.row.sel{background:rgba(90,150,235,.38);box-shadow:inset 0 0 0 1px rgba(90,150,235,.65)}
+.row.sel .c.pv{color:#eef5ff;font-weight:700}
 .row.bonus{background:none;font-size:13px}
 .row.bonus .l{color:var(--muted)}
 .row.bonus .c{font-weight:500;color:var(--muted)}
@@ -155,17 +155,17 @@ input::placeholder{color:var(--muted)}
 .row.head .c{display:block;line-height:22px;overflow:hidden;text-overflow:ellipsis;font-weight:500;background:none}
 .row.head .c.act{color:var(--text);font-weight:700}
 .actions{display:flex;gap:12px;margin-top:12px}
-.actions .roll{flex:1.35;background:var(--accent)}
+.actions .roll{flex:1.35;background:var(--accent);color:var(--on-accent)}
 .actions .score{flex:1}
 .pips{display:flex;gap:5px;margin-left:12px}
-.pips i{width:9px;height:9px;border-radius:50%;border:1.5px solid rgba(255,255,255,.7)}
-.pips i.on{background:#fff}
+.pips i{width:9px;height:9px;border-radius:50%;border:1.5px solid rgba(255,255,255,.75)}
+.pips i.on{background:var(--on-accent)}
 
 /* ---------- lobby / banner ---------- */
-#pop{position:absolute;left:50%;top:34%;transform:translate(-50%,-50%) scale(.6);opacity:0;pointer-events:none;z-index:7;text-align:center;
+#pop{color:var(--on-accent);position:absolute;left:50%;top:34%;transform:translate(-50%,-50%) scale(.6);opacity:0;pointer-events:none;z-index:7;text-align:center;
   padding:20px 36px 22px;border-radius:26px;white-space:nowrap;
-  background:linear-gradient(160deg,#7477f3,var(--accent) 55%,#5558e0);
-  box-shadow:0 20px 50px rgba(20,22,90,.6),inset 0 1px 0 rgba(255,255,255,.2);
+  background:linear-gradient(160deg,#5b9ae8,var(--accent) 55%,#2f66b8);
+  box-shadow:0 20px 50px rgba(10,30,80,.6),inset 0 1px 0 rgba(255,255,255,.2);
   transition:transform .5s cubic-bezier(.2,1.4,.4,1),opacity .25s}
 #pop.on{opacity:1;transform:translate(-50%,-50%) scale(1)}
 #pop b{display:block;font-size:42px;font-weight:700;letter-spacing:-.02em}
@@ -199,7 +199,7 @@ input::placeholder{color:var(--muted)}
 
 .list{width:100%;display:grid;gap:8px;margin:14px 0 10px}
 .list div{display:flex;justify-content:space-between;background:var(--glass);border-radius:14px;padding:14px 18px;font-size:17px}
-.list div.win{background:rgba(167,139,250,.26)}
+.list div.win{background:rgba(90,150,235,.26)}
 .list div.wait{color:var(--muted)}
 .list span.tag{color:var(--muted);font-size:14px}
 .list b{font-variant-numeric:tabular-nums}
@@ -211,7 +211,7 @@ input::placeholder{color:var(--muted)}
 .hrow{display:grid;grid-template-columns:48px repeat(var(--n),1fr);align-items:center;border-radius:11px;background:var(--glass);font-size:16px;font-variant-numeric:tabular-nums}
 .hrow span{padding:8px 4px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hrow .g{color:var(--muted);font-size:13px}
-.hrow .win{background:rgba(167,139,250,.3);border-radius:10px;margin:3px;padding:5px 4px;font-weight:700}
+.hrow .win{background:rgba(90,150,235,.3);border-radius:10px;margin:3px;padding:5px 4px;font-weight:700}
 .hrow.head{background:none;color:var(--muted);font-size:13px}
 .hrow.wins{background:none;font-weight:700}
 @media (max-height:700px){
@@ -395,10 +395,9 @@ const jokerOn = (p, d) => isY(d) && p.scores.yz !== undefined;
 function allowed(p, d){
   const open = SCORING.filter(c => p.scores[c.id] === undefined).map(c => c.id);
   if (jokerOn(p, d)){
-    const upId = CATS.find(c => c.up === d[0]).id;
-    if (open.includes(upId)) return [upId];
-    const lower = open.filter(id => !CATS.find(c => c.id === id).up);
-    if (lower.length) return lower;
+    // wild card: any open row that makes sense (the matching number up top, or any of the lower rows / chance)
+    const fits = open.filter(id => { const c = CATS.find(x => x.id === id); return c.up ? c.up === d[0] : true; });
+    return fits.length ? fits : open;
   }
   return open;
 }
@@ -467,6 +466,7 @@ function act(a, who){
   if (a.t === 'roll'){
     if (S.rollsLeft < 1) return;
     const idx = [0,1,2,3,4].filter(i => !S.held[i]);
+    if (!idx.length) return;
     const hv = S.dice.filter((v,i) => S.held[i] && v);
     const bias = hv.length >= 2 && hv.every(v => v === hv[0]) ? hv[0] : 0;
     const nudge = hv.length >= 3 ? NUDGE_TRIPLE : NUDGE_PAIR;
@@ -593,7 +593,7 @@ function playRoll(idx){
 const cv = $('#confetti'), cctx = cv.getContext ? cv.getContext('2d') : null;
 let parts = [], raf = 0;
 const DT = 0.6; // confetti speed: lower is slower
-const COLORS = ['#a78bfa','#6366f1','#f4f6fa','#c4b5fd','#818cf8'];
+const COLORS = ['#5b9ae8','#3a7bd5','#f4f6fa','#a9cbf6','#7cc4ff'];
 function confetti(count, ox, oy, spread, power){
   if (!cctx) return;
   if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
@@ -629,7 +629,7 @@ let celebrated = null, popT;
 const WORDS = ['', 'ones', 'twos', 'threes', 'fours', 'fives', 'sixes'];
 function yahtzeePop(v, name){
   const el = $('#pop');
-  el.querySelector('span').textContent = (name ? name + ' rolled five ' : 'Five ') + WORDS[v];
+  el.querySelector('span').textContent = 'Told ya you were due.';
   el.classList.add('on'); clearTimeout(popT); popT = setTimeout(() => el.classList.remove('on'), 2700);
   confetti(60, .5, .4, 100, 14); confetti(40, .12, .95, 50, 17); confetti(40, .88, .95, 50, 17);
 }
@@ -713,12 +713,14 @@ function render(){
   let hint = 'Roll to start your turn';
   if (rolled && S.rollsLeft > 0) hint = 'Tap dice to hold them';
   if (rolled && S.rollsLeft === 0) hint = 'Choose where to score';
-  if (rolled && jokerOn(p, S.dice) && p.scores.yz === 50) hint = 'Extra Yahtzee: +100 bonus';
+  if (rolled && S.rollsLeft > 0 && S.held.every(Boolean)) hint = 'All dice held. Choose where to score';
+  if (rolled && jokerOn(p, S.dice)) hint = p.scores.yz === 50 ? 'Wild card, plus a 100 point bonus' : 'Wild card: score it anywhere that fits';
   if (!mine) hint = p.name + ' is playing';
   $('#hint').textContent = hint;
 
   [...$('#pips').children].forEach((el, i) => el.classList.toggle('on', i < 3 - S.rollsLeft));
-  $('#roll').disabled = rolling || S.rollsLeft < 1 || !mine;
+  const allHeld = rolled && S.held.every(Boolean);
+  $('#roll').disabled = rolling || S.rollsLeft < 1 || !mine || allHeld;
   const sb = $('#score');
   if (S.selected && mine){
     sb.textContent = 'Score ' + calc(S.selected, S.dice, jokerOn(p, S.dice));
